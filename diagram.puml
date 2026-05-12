@@ -1,0 +1,56 @@
+@startuml
+package "javamarkt.core" {
+  class Cart {
+    - products : List<Product>
+    - discounts : List<Discount>
+    - sortOrder : Comparator<Product>
+    + Cart()
+    + Cart(products : List<Product>)
+    + getProducts() : List<Product>
+    + addDiscount(discount : Discount)
+    + removeDiscount(discount : Discount)
+    + getDiscounts() : List<Discount>
+    + setSortOrder(sortOrder : Comparator<Product>)
+    + getCheapest() : Product
+    + getMostExpensive() : Product
+    + getCheapestN(n : int) : List<Product>
+    + getMostExpensiveN(n : int) : List<Product>
+    + getCartSorted() : List<Product>
+    + getTotalSum() : double
+    + getBestTotalSum() : double
+  }
+
+  class Product {
+    - code : String
+    - name : String
+    - price : double
+    - discountPrice : double
+    + Product(code : String, name : String, price : double)
+    + getCode() : String
+    + getName() : String
+    + getPrice() : double
+    + getDiscountPrice() : double
+    + withDiscountPrice(newDiscountPrice : double) : Product
+  }
+}
+
+package "javamarkt.core.discount" {
+  interface Discount {
+    + apply(products : List<Product>) : List<Product>
+  }
+
+  class PercentOverSomePriceDiscount
+  class TwoPlusOneDiscount
+  class PresentOverSomePriceDiscount
+  class SingleUseCouponDiscount
+}
+
+Cart --> Product : contains
+Cart --> Discount : uses
+Discount ..> Product
+PercentOverSomePriceDiscount ..|> Discount
+TwoPlusOneDiscount ..|> Discount
+PresentOverSomePriceDiscount ..|> Discount
+SingleUseCouponDiscount ..|> Discount
+@enduml
+
