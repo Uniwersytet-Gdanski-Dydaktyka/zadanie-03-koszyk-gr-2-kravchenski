@@ -7,6 +7,7 @@ import javamarkt.core.discount.TwoPlusOneDiscount;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -35,7 +36,11 @@ class CartTests {
 
         @Test
         void cartNullElement_throws() {
-            assertThrows(NullPointerException.class, () -> new Cart(List.of(cheap, null)));
+            List<Product> products = new ArrayList<>();
+            products.add(cheap);
+            products.add(null);
+
+            assertThrows(NullPointerException.class, () -> new Cart(products));
         }
     }
 
@@ -68,6 +73,11 @@ class CartTests {
         void getCheapest_emptyCart_throwsNoSuchElement() {
             assertThrows(NoSuchElementException.class, () -> new Cart().getCheapest());
         }
+
+        @Test
+        void getMostExpensive_emptyCart_throwsNoSuchElement() {
+            assertThrows(NoSuchElementException.class, () -> new Cart().getMostExpensive());
+        }
     }
 
     @Nested
@@ -89,6 +99,14 @@ class CartTests {
             Cart cart = new Cart(List.of(cheap, mid));
             assertEquals(List.of(), cart.getCheapestN(0));
             assertEquals(List.of(), cart.getMostExpensiveN(-1));
+        }
+
+        @Test
+        void nGreaterThanCartSize_returnsAllProductsInRequestedOrder() {
+            Cart cart = new Cart(List.of(mid, cheap));
+
+            assertEquals(List.of(cheap, mid), cart.getCheapestN(10));
+            assertEquals(List.of(mid, cheap), cart.getMostExpensiveN(10));
         }
     }
 
@@ -166,6 +184,30 @@ class CartTests {
         }
 
         @Test
+        void discountsOnEmptyCart_doNotFailOrChangeTotal() {
+            Cart cart = new Cart();
+            cart.addDiscount(new TwoPlusOneDiscount());
+            cart.addDiscount(new PercentOverSomePriceDiscount(300, 0.05));
+            cart.addDiscount(new PresentOverSomePriceDiscount(200, new Product("MUG", "Company Mug", 0)));
+            cart.addDiscount(new SingleUseCouponDiscount("1", 0.30));
+
+            assertEquals(List.of(), cart.getProducts());
+            assertEquals(0.0, cart.getTotalSum());
+        }
+
+        @Test
+        void removeDiscount_stopsApplyingIt() {
+            PercentOverSomePriceDiscount discount = new PercentOverSomePriceDiscount(300, 0.05);
+            Cart cart = new Cart(List.of(mid, expensive));
+            cart.addDiscount(discount);
+
+            assertEquals(475.0, cart.getTotalSum());
+
+            cart.removeDiscount(discount);
+            assertEquals(500.0, cart.getTotalSum());
+        }
+
+        @Test
         void presentOver200_addsMugOnlyWhenOverThreshold() {
             Product mug = new Product("MUG", "Company Mug", 0);
             Cart cart = new Cart(List.of(mid, cheap));
@@ -175,26 +217,27 @@ class CartTests {
         }
 
         @Test
-        void singleUseCoupon_isAppliedOnce() {
-            Cart cart = new Cart(List.of(cheap, mid));
-            SingleUseCouponDiscount coupon = new SingleUseCouponDiscount("2", 0.30);
-            cart.addDiscount(coupon);
-            assertEquals(240.0, cart.getTotalSum());
-            assertTrue(coupon.isUsed());
+        void singleUseCoupon_appliesToOnlyOneSelectedProductAndIsDeterministic() {
+            Product secondProductWithSameCode = new Product("2", "Blueberry", 50);
+            Cart cart = new Cart(List.of(cheap, mid, secondProductWithSameCode));
+            cart.addDiscount(new SingleUseCouponDiscount("2", 0.30));
 
-            assertEquals(240.0, cart.getTotalSum());
+            assertEquals(290.0, cart.getTotalSum());
+            assertEquals(290.0, cart.getTotalSum());
         }
 
         @Test
-        void bestOrder_canBeBetterThanFixedOrder() {
-            Cart cart = new Cart(List.of(cheap, mid, expensive));
+        void bestOrder_checksEveryDiscountOrderAndChoosesLowestTotal() {
+            Product cheapest = new Product("4", "Kiwi", 10);
+            Cart cart = new Cart(List.of(cheap, mid, cheapest));
             cart.addDiscount(new TwoPlusOneDiscount());
-            cart.addDiscount(new SingleUseCouponDiscount("3", 0.30));
+            cart.addDiscount(new PercentOverSomePriceDiscount(300, 0.05));
 
             double fixed = cart.getTotalSum();
             double best = cart.getBestTotalSum();
 
-            assertTrue(best <= fixed);
+            assertEquals(300.0, fixed);
+            assertEquals(285.0, best);
         }
     }
 }
